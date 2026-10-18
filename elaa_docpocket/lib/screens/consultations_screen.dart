@@ -9,6 +9,7 @@ import 'package:elaa_shared/elaa_shared.dart';
 import 'package:elaa_docpocket/hub_security_manager.dart';
 import 'active_consultation_view.dart';
 import '../doctor_name_badge.dart';
+import '../utils/universal_file_picker.dart';
 
 class ConsultationsScreen extends StatefulWidget {
   const ConsultationsScreen({super.key});
@@ -159,38 +160,25 @@ class _ConsultationsScreenState extends State<ConsultationsScreen> {
                         Expanded(
                           child: OutlinedButton.icon(
                             onPressed: () async {
-                              // file_picker v8 : pas de resetInstance() — on utilise
-                              // FileType.custom en premier, FileType.any en fallback.
-                              FilePickerResult? result;
                               try {
-                                result = await FilePicker.platform.pickFiles(
-                                  type: FileType.custom,
+                                final file = await pickSingleFile(
                                   allowedExtensions: ['pdf', 'png', 'jpg', 'jpeg'],
-                                  withData: true,
+                                  dialogTitle: 'Sélectionner la Garantie de paiement',
                                 );
-                              } catch (_) {
-                                // Sur macOS/Electron le filtre par extension peut échouer :
-                                // on retente sans contrainte de type.
-                                try {
-                                  result = await FilePicker.platform.pickFiles(
-                                    type: FileType.any,
-                                    withData: true,
-                                  );
-                                } catch (e2) {
-                                  if (context.mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text('Erreur sélection fichier: $e2'),
-                                        backgroundColor: Colors.red,
-                                      ),
-                                    );
-                                  }
+                                if (file != null) {
+                                  setDialogState(() {
+                                    selectedGarantieFile = file;
+                                  });
                                 }
-                              }
-                              if (result != null && result.files.isNotEmpty) {
-                                setDialogState(() {
-                                  selectedGarantieFile = result!.files.first;
-                                });
+                              } catch (e2) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Erreur sélection fichier: $e2'),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                }
                               }
                             },
                             icon: const Icon(Icons.attach_file),
@@ -263,7 +251,10 @@ class _ConsultationsScreenState extends State<ConsultationsScreen> {
                                 fileBytes = File(selectedGarantieFile!.path!).readAsBytesSync();
                               }
                               if (fileBytes != null) {
-                                final ext = selectedGarantieFile!.extension ?? 'pdf';
+                                final ext = selectedGarantieFile!.extension ??
+                                    (selectedGarantieFile!.name.contains('.')
+                                        ? selectedGarantieFile!.name.split('.').last
+                                        : 'pdf');
                                 garantieUrl = await LocalBackupService.uploadToBridge(consId, 'garantie.$ext', fileBytes);
                               }
                             }

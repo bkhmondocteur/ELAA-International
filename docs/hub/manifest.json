@@ -2,12 +2,11 @@
     "name": "ELAA DocPocket Hub",
     "short_name": "DocPocket Hub",
     "start_url": "./",
-    "scope": "./",
     "display": "standalone",
     "background_color": "#0B172A",
     "theme_color": "#0D47A1",
-    "description": "ELAA International — Cockpit Opérateur & Régulation Médicale",
-    "orientation": "any",
+    "description": "ELAA International \u2014 Cockpit Op\u00e9rateur & R\u00e9gulation M\u00e9dicale",
+    "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
         {
@@ -32,5 +31,6 @@
             "type": "image/png",
             "purpose": "maskable"
         }
-    ]
+    ],
+    "scope": "./"
 }

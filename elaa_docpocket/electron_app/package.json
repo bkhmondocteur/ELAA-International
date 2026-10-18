@@ -1,0 +1,42 @@
+{
+  "name": "elaa-docpocket-hub",
+  "version": "1.0.0",
+  "description": "ELAA DocPocket Hub",
+  "author": "ELAA International",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build:mac": "electron-builder --mac",
+    "build:win": "electron-builder --win"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  },
+  "devDependencies": {
+    "electron": "31.2.1",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.elaa.hub.elaa_docpocket",
+    "productName": "ELAA DocPocket Pro Hub Operateur",
+    "asar": true,
+    "directories": {
+      "output": "dist"
+    },
+    "mac": {
+      "target": [
+        "dir"
+      ],
+      "icon": "../assets/icon.png",
+      "extendInfo": {
+        "NSAppleEventsUsageDescription": "ELAA DocPocket Hub a besoin d'accéder à l'application Mail pour préparer les emails avec pièces jointes."
+      }
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "../assets/icon.png"
+    }
+  }
+}

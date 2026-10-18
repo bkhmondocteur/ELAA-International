@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>ELAA International — DocPocket Pro Suite</title>
+  <meta name="description" content="Plateforme médicale connectée ELAA International — DocPocket Hub & DocPocket Med">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0D47A1">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="apple-touch-icon" href="favicon.png">
+
+  <style>
+    :root {
+      --primary: #0d47a1;
+      --primary-dark: #082963;
+      --med-teal: #00796b;
+      --med-teal-dark: #004d40;
+      --accent: #29b6f6;
+      --bg-gradient: linear-gradient(135deg, #0b172a 0%, #172554 50%, #1e293b 100%);
+      --card-bg: rgba(255, 255, 255, 0.08);
+      --card-border: rgba(255, 255, 255, 0.15);
+      --text-white: #ffffff;
+      --text-muted: #cbd5e1;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      min-height: 100vh;
+      background: var(--bg-gradient);
+      color: var(--text-white);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      padding: 30px 20px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    /* HEADER */
+    header {
+      text-align: center;
+      margin-bottom: 35px;
+    }
+
+    .logo-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 24px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 50px;
+      border: 1px solid var(--card-border);
+      backdrop-filter: blur(10px);
+      margin-bottom: 18px;
+    }
+
+    .logo-badge img {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+    }
+
+    .logo-badge span {
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      font-size: 14px;
+      color: #93c5fd;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      font-size: 2.6rem;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      margin-bottom: 12px;
+      background: linear-gradient(90deg, #ffffff, #93c5fd, #67e8f9);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .subtitle {
+      font-size: 1.15rem;
+      color: var(--text-muted);
+      max-width: 680px;
+      margin: 0 auto;
+      line-height: 1.6;
+    }
+
+    /* QUICK DUAL LAUNCH BANNER */
+    .dual-launch-bar {
+      margin-bottom: 35px;
+      display: flex;
+      justify-content: center;
+    }
+
+    .btn-dual {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      padding: 16px 36px;
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #ffffff;
+      background: linear-gradient(135deg, #2563eb 0%, #06b6d4 100%);
+      border: none;
+      border-radius: 14px;
+      box-shadow: 0 10px 25px -5px rgba(37, 99, 235, 0.5);
+      cursor: pointer;
+      transition: all 0.25s ease;
+      text-decoration: none;
+    }
+
+    .btn-dual:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 15px 30px -5px rgba(6, 182, 212, 0.6);
+      background: linear-gradient(135deg, #1d4ed8 0%, #0891b2 100%);
+    }
+
+    .btn-dual svg {
+      width: 22px;
+      height: 22px;
+      fill: currentColor;
+    }
+
+    /* APP CARDS GRID */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 30px;
+      margin-bottom: 40px;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
+      padding: 36px 30px;
+      backdrop-filter: blur(14px);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      position: relative;
+      overflow: hidden;
+      transition: all 0.3s ease;
+    }
+
+    .card::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+    }
+
+    .card-hub::before {
+      background: linear-gradient(90deg, #3b82f6, #60a5fa);
+    }
+
+    .card-med::before {
+      background: linear-gradient(90deg, #10b981, #34d399);
+    }
+
+    .card:hover {
+      transform: translateY(-4px);
+      border-color: rgba(255, 255, 255, 0.3);
+      box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.5);
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .card-icon {
+      width: 58px;
+      height: 58px;
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      box-shadow: 0 8px 16px rgba(0,0,0,0.3);
+    }
+
+    .card-hub .card-icon {
+      background: linear-gradient(135deg, #1e40af, #3b82f6);
+    }
+
+    .card-med .card-icon {
+      background: linear-gradient(135deg, #065f46, #10b981);
+    }
+
+    .card-title-group h2 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .card-subtitle {
+      font-size: 0.85rem;
+      color: #93c5fd;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+    }
+
+    .card-med .card-subtitle {
+      color: #6ee7b7;
+    }
+
+    .card-desc {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      line-height: 1.6;
+      margin-bottom: 24px;
+    }
+
+    .feature-list {
+      list-style: none;
+      margin-bottom: 28px;
+    }
+
+    .feature-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.9rem;
+      color: #e2e8f0;
+      margin-bottom: 10px;
+    }
+
+    .feature-item svg {
+      width: 18px;
+      height: 18px;
+      fill: #38bdf8;
+      flex-shrink: 0;
+    }
+
+    .card-med .feature-item svg {
+      fill: #34d399;
+    }
+
+    .card-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .btn-app {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 14px 24px;
+      border-radius: 12px;
+      font-size: 1rem;
+      font-weight: 700;
+      text-decoration: none;
+      transition: all 0.2s ease;
+      cursor: pointer;
+    }
+
+    .btn-hub {
+      background: #2563eb;
+      color: #ffffff;
+      border: 1px solid #3b82f6;
+    }
+
+    .btn-hub:hover {
+      background: #1d4ed8;
+      box-shadow: 0 8px 20px rgba(37, 99, 235, 0.4);
+    }
+
+    .btn-med {
+      background: #059669;
+      color: #ffffff;
+      border: 1px solid #10b981;
+    }
+
+    .btn-med:hover {
+      background: #047857;
+      box-shadow: 0 8px 20px rgba(16, 185, 129, 0.4);
+    }
+
+    .btn-sub {
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text-muted);
+      border: 1px solid var(--card-border);
+      font-size: 0.85rem;
+      padding: 10px 16px;
+    }
+
+    .btn-sub:hover {
+      background: rgba(255, 255, 255, 0.12);
+      color: #ffffff;
+    }
+
+    /* FOOTER */
+    footer {
+      text-align: center;
+      color: #64748b;
+      font-size: 0.85rem;
+      margin-top: 20px;
+    }
+
+    footer p {
+      margin-bottom: 6px;
+    }
+
+    .badge-sec {
+      display: inline-block;
+      padding: 4px 12px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 20px;
+      color: #94a3b8;
+      font-size: 0.75rem;
+      margin-top: 8px;
+    }
+
+    @media (max-width: 600px) {
+      h1 { font-size: 2rem; }
+      .btn-dual { width: 100%; justify-content: center; font-size: 0.95rem; }
+      body { padding: 20px 14px; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <!-- HEADER -->
+    <header>
+      <div class="logo-badge">
+        <img src="favicon.png" alt="ELAA Logo" onerror="this.style.display='none'">
+        <span>ELAA International</span>
+      </div>
+      <h1>DocPocket Pro Suite</h1>
+      <p class="subtitle">
+        Plateforme unifiée d'assistance médicale d'urgence. Choisissez votre profil ou ouvrez les deux fenêtres simultanément pour tester en temps réel.
+      </p>
+    </header>
+
+    <!-- BOUTON DUO : OUVRIR 2 FENÊTRES CHROME -->
+    <div class="dual-launch-bar">
+      <button class="btn-dual" onclick="openDualWindows()" title="Ouvre simultanément le Hub et le module Médecin dans 2 fenêtres Chrome séparées">
+        <svg viewBox="0 0 24 24"><path d="M19 4H5c-1.11 0-2 .9-2 2v12c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.89-2-2-2zm-7 14H5V8h7v10zm7 0h-5V8h5v10z"/></svg>
+        ⚡ Ouvrir deux fenêtres (Hub + Médecin)
+      </button>
+    </div>
+
+    <!-- CARTES DES APPLICATIONS -->
+    <div class="grid">
+
+      <!-- CARTE 1 : HUB OPÉRATEUR -->
+      <div class="card card-hub">
+        <div>
+          <div class="card-header">
+            <div class="card-icon">🏥</div>
+            <div class="card-title-group">
+              <h2>DocPocket Hub</h2>
+              <div class="card-subtitle">Opérateur & Régulation</div>
+            </div>
+          </div>
+          <p class="card-desc">
+            Cockpit central de gestion : régulation des missions, assignation des praticiens, suivi GPS temps réel et audit de facturation.
+          </p>
+          <ul class="feature-list">
+            <li class="feature-item">
+              <svg viewBox="0 0 20 20"><path d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg>
+              <span>Suivi GPS Live des médecins & Geofencing</span>
+            </li>
+            <li class="feature-item">
+              <svg viewBox="0 0 20 20"><path d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg>
+              <span>Ordres de mission & Prises en charge</span>
+            </li>
+            <li class="feature-item">
+              <svg viewBox="0 0 20 20"><path d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg>
+              <span>Rapport Financier & Facturation consolidée</span>
+            </li>
+          </ul>
+        </div>
+        <div class="card-actions">
+          <a href="./hub/" class="btn-app btn-hub" id="launch-hub">
+            Lancer le Hub (PWA)
+          </a>
+          <button class="btn-app btn-sub" onclick="openWindow('./hub/', 'DocPocketHub')">
+            Ouvrir dans une nouvelle fenêtre
+          </button>
+        </div>
+      </div>
+
+      <!-- CARTE 2 : MÉDECIN PRATICIEN -->
+      <div class="card card-med">
+        <div>
+          <div class="card-header">
+            <div class="card-icon">🩺</div>
+            <div class="card-title-group">
+              <h2>DocPocket Med</h2>
+              <div class="card-subtitle">Médecin Praticien</div>
+            </div>
+          </div>
+          <p class="card-desc">
+            Application mobile & tablette praticien : examen clinique confidentiel, ordonnances sécurisées, justificatifs et transmission immédiate.
+          </p>
+          <ul class="feature-list">
+            <li class="feature-item">
+              <svg viewBox="0 0 20 20"><path d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg>
+              <span>Secret Médical chiffré AES-GCM 256</span>
+            </li>
+            <li class="feature-item">
+              <svg viewBox="0 0 20 20"><path d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg>
+              <span>Ordonnances & Rapports Médicaux PDF</span>
+            </li>
+            <li class="feature-item">
+              <svg viewBox="0 0 20 20"><path d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg>
+              <span>Envoi Mail complet (avec analyses & passeport)</span>
+            </li>
+          </ul>
+        </div>
+        <div class="card-actions">
+          <a href="./med/" class="btn-app btn-med" id="launch-med">
+            Lancer le Module Médecin (PWA)
+          </a>
+          <button class="btn-app btn-sub" onclick="openWindow('./med/', 'DocPocketMed')">
+            Ouvrir dans une nouvelle fenêtre
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <footer>
+    <p>© 2026 ELAA International — Tous droits réservés.</p>
+    <div class="badge-sec">🔒 Chiffrement End-to-End AES-GCM 256 bits • Conforme RGPD & Secret Médical</div>
+  </footer>
+
+  <script>
+    // Ouvrir une fenêtre pop-up indépendante
+    function openWindow(url, windowName) {
+      const w = 1100;
+      const h = 850;
+      const left = windowName === 'DocPocketHub' ? 30 : 600;
+      const top = 40;
+      window.open(url, windowName, `width=${w},height=${h},top=${top},left=${left},resizable=yes,scrollbars=yes,status=yes`);
+    }
+
+    // Ouvrir simultanément 2 fenêtres Chrome côte-à-côte
+    function openDualWindows() {
+      const screenW = window.screen.availWidth || 1920;
+      const screenH = window.screen.availHeight || 1080;
+      const winW = Math.max(750, Math.floor((screenW - 60) / 2));
+      const winH = Math.max(650, screenH - 100);
+
+      const hubLeft = 20;
+      const medLeft = hubLeft + winW + 20;
+      const topPos = 40;
+
+      window.open('./hub/', 'DocPocketHub', `width=${winW},height=${winH},top=${topPos},left=${hubLeft},resizable=yes,scrollbars=yes`);
+      window.open('./med/', 'DocPocketMed', `width=${winW},height=${winH},top=${topPos},left=${medLeft},resizable=yes,scrollbars=yes`);
+    }
+
+    // Enregistrement Service Worker PWA pour le portail
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(err => {
+          console.debug('Service Worker portal registration info:', err);
+        });
+      });
+    }
+  </script>
+</body>
+</html>

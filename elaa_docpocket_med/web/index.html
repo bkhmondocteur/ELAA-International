@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <!--
+    ELAA DocPocket Med — Application Web/Electron
+    Module Multi-Acteurs : Médecin avec télémétrie GPS + volet médical AES-GCM 256
+  -->
+  <base href="$FLUTTER_BASE_HREF">
+
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="ELAA DocPocket Med — Application Médecin ELAA International">
+
+  <!-- iOS meta tags & icons -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="ELAA DocPocket Med">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="favicon.png"/>
+
+  <title>ELAA DocPocket Med</title>
+  <link rel="manifest" href="manifest.json">
+
+  <!-- ═══════════════════════════════════════════════════════════
+       DÉPENDANCES EXTERNES — Module Multi-Acteurs
+  ════════════════════════════════════════════════════════════ -->
+
+  <!-- jsPDF + autoTable : génération PDF ordonnances / rapports -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+
+  <!-- LocalForage : stockage offline des scans GDP, caches locaux -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/localforage/1.10.0/localforage.min.js"></script>
+
+</head>
+<body>
+
+  <!-- Application Flutter Bootstrap -->
+  <script src="flutter_bootstrap.js" async></script>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       MODULE MULTI-ACTEURS DOCPOCKET PRO (côté Médecin)
+       — Machine à états + GPS Live + P2P GDP Relay
+  ════════════════════════════════════════════════════════════ -->
+  <script src="docpocket-multi-actors.js" defer></script>
+
+  <script>
+    window.addEventListener('load', function () {
+      let attempts = 0;
+      const tryInstall = setInterval(function () {
+        attempts++;
+        if (window.DocPocketMultiActors && window.app) {
+          clearInterval(tryInstall);
+          window.DocPocketMultiActors.install(window.app);
+        } else if (attempts > 100) {
+          clearInterval(tryInstall);
+          console.warn('[DocPocket Med] window.app non détecté après 10s.');
+        }
+      }, 100);
+    });
+  </script>
+
+</body>
+</html>

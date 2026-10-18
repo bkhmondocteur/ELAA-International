@@ -1,0 +1,67 @@
+{
+  "project_info": {
+    "project_number": "67484955735",
+    "project_id": "elaa-docpocket",
+    "storage_bucket": "elaa-docpocket.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:67484955735:android:92aef6a7c36fc7bccd1f12",
+        "android_client_info": {
+          "package_name": "com.elaa.hub"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA-rNEXgnKX7XlA6_zrcGkNa9YAmh4dKck"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:67484955735:android:fc9c6c03860beaafcd1f12",
+        "android_client_info": {
+          "package_name": "com.elaa.med"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA-rNEXgnKX7XlA6_zrcGkNa9YAmh4dKck"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:67484955735:android:4200a070b68d6d07cd1f12",
+        "android_client_info": {
+          "package_name": "com.elaa.med.elaa_docpocket_med"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA-rNEXgnKX7XlA6_zrcGkNa9YAmh4dKck"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

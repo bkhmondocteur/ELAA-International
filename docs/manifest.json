@@ -1,0 +1,25 @@
+{
+  "name": "ELAA International — DocPocket Pro",
+  "short_name": "ELAA DocPocket",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0B172A",
+  "theme_color": "#0D47A1",
+  "description": "Plateforme médicale d'assistance connectée — ELAA International",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "favicon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "favicon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

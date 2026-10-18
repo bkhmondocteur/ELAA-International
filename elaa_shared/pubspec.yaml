@@ -1,0 +1,19 @@
+name: elaa_shared
+description: Shared models and encryption logic for ELAA DocPocket Hub and Med.
+version: 1.0.0
+publish_to: 'none'
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  encrypt: ^5.0.3
+  pointycastle: ^3.7.3
+  cryptography: ^2.7.0
+  uuid: ^4.3.3
+  shared_preferences: ^2.2.2
+  url_launcher: ^6.3.1
+  geolocator: ^13.0.2
+  pdf: ^3.11.1

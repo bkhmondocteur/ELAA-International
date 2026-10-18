@@ -1,0 +1,40 @@
+# Flutter / Dart
+**/.dart_tool/
+**/build/
+**/.packages
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
+**/.pub-cache/
+**/.pub/
+
+# Electron / Node
+**/node_modules/
+**/dist/
+
+# macOS
+.DS_Store
+**/.DS_Store
+
+# IDE / Antigravity internal
+.dart/
+.dart-tool/
+.flutter
+.dartServer/
+.flutter_home/
+.home/
+.agents/
+.config/
+
+# Binaries / Archives
+*.apk
+*.aab
+*.app/
+*.zip
+*.dmg
+*.tar.gz
+build_apk.log
+release/
+test/
+
+# Keep docs/ for GitHub Pages
+!docs/

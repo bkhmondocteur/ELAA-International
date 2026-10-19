@@ -18,6 +18,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:geolocator/geolocator.dart';
+import 'settings_screen.dart';
 
 class ConsultationFormScreen extends StatefulWidget {
   final String? consultationId;
@@ -244,38 +245,96 @@ class _ConsultationFormScreenState extends State<ConsultationFormScreen> {
   }
 
   Future<String?> _showPinDialog() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedPin = prefs.getString('saved_pin');
     String? pin;
     await showDialog(
       context: context,
       barrierDismissible: false,
       builder: (c) {
         final pc = TextEditingController();
-        return AlertDialog(
-          title: const Text('Déverrouillage requis'),
-          content: TextField(
-            controller: pc,
-            obscureText: true,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(labelText: 'Code PIN personnel'),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(c);
-                Navigator.pop(context); // Go back if cancel
-              },
-              child: const Text('Annuler'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                pin = pc.text;
-                Navigator.pop(c);
-              },
-              child: const Text('Valider'),
-            )
-          ],
+        String? errorMsg;
+        return StatefulBuilder(
+          builder: (c, setDialogState) {
+            return AlertDialog(
+              title: const Row(
+                children: [
+                  Icon(Icons.lock, color: Colors.teal),
+                  SizedBox(width: 8),
+                  Text('Déverrouillage requis'),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Veuillez entrer votre clé de sécurité (Code PIN) pour accéder aux données médicales du patient.'),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: pc,
+                    obscureText: true,
+                    keyboardType: TextInputType.text,
+                    decoration: InputDecoration(
+                      labelText: 'Clé de sécurité / Code PIN',
+                      errorText: errorMsg,
+                      prefixIcon: const Icon(Icons.key),
+                    ),
+                    onSubmitted: (_) {
+                      final entered = pc.text.trim();
+                      if (entered.isEmpty) {
+                        setDialogState(() => errorMsg = 'Veuillez saisir votre clé de sécurité');
+                        return;
+                      }
+                      if (savedPin != null && savedPin.isNotEmpty && entered != savedPin) {
+                        setDialogState(() => errorMsg = 'Clé de sécurité incorrecte. Veuillez réessayer.');
+                        return;
+                      }
+                      pin = entered;
+                      Navigator.pop(c);
+                    },
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(c);
+                    Navigator.pop(context); // Go back if cancel
+                  },
+                  child: const Text('Annuler'),
+                ),
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(c);
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                    );
+                  },
+                  child: const Text('Réglages / Clé oubliée'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    final entered = pc.text.trim();
+                    if (entered.isEmpty) {
+                      setDialogState(() => errorMsg = 'Veuillez saisir votre clé de sécurité');
+                      return;
+                    }
+                    if (savedPin != null && savedPin.isNotEmpty && entered != savedPin) {
+                      setDialogState(() => errorMsg = 'Clé de sécurité incorrecte. Veuillez réessayer.');
+                      return;
+                    }
+                    pin = entered;
+                    Navigator.pop(c);
+                  },
+                  child: const Text('Valider'),
+                )
+              ],
+            );
+          },
         );
-      }
+      },
     );
     return pin;
   }
@@ -290,8 +349,83 @@ class _ConsultationFormScreenState extends State<ConsultationFormScreen> {
       _targetLng = (rawData['gpsTargetLng'] as num?)?.toDouble() ?? 0.0;
 
       final prefs = await SharedPreferences.getInstance();
+
+      // Check if consultation is available from local backup first
+      final localBackupStr = prefs.getString('latest_backup_${widget.consultationId}');
+      if (localBackupStr != null) {
+        try {
+          final backup = jsonDecode(localBackupStr);
+          final data = backup['data'] as Map<String, dynamic>?;
+          if (data != null && data['patient'] != null) {
+            final patientData = Map<String, dynamic>.from(data['patient']);
+            setState(() {
+              _nomController.text = patientData['nom'] ?? '';
+              _prenomController.text = patientData['prenom'] ?? '';
+              _telController.text = patientData['telephone'] ?? patientData['tel'] ?? '';
+              _ddnController.text = patientData['dateNaissance'] ?? '';
+              _ageController.text = patientData['age'] ?? calculateAge(_ddnController.text);
+              _villeController.text = patientData['ville'] ?? patientData['origine'] ?? '';
+              _hotelController.text = patientData['hotel'] ?? '';
+              _chambreController.text = patientData['chambre'] ?? '';
+              _dossierController.text = patientData['dossier'] ?? patientData['garantie'] ?? '';
+              if (patientData['garantieUrl'] != null) {
+                _garantieUrl = patientData['garantieUrl'];
+              }
+            });
+            if (data['rapport'] != null) {
+              final rapData = Map<String, dynamic>.from(data['rapport']);
+              setState(() {
+                _motifController.text = rapData['motif'] ?? '';
+                _histoireController.text = rapData['histoire'] ?? '';
+                _diagnosticController.text = rapData['diagnostic'] ?? '';
+                _ordonnanceController.text = data['ordonnance']?.toString() ?? '';
+              });
+            }
+            if (data['finance'] != null) {
+              final finData = Map<String, dynamic>.from(data['finance']);
+              setState(() {
+                _honorairesController.text = finData['honoraires'] ?? _honorairesController.text;
+                _tvaController.text = finData['tva'] ?? _tvaController.text;
+              });
+            }
+            _syncBridgeFiles();
+            return;
+          }
+        } catch (_) {}
+      }
+
       final encryptedPrivKey = prefs.getString('encrypted_private_key');
-      if (encryptedPrivKey == null) throw Exception('Clé privée introuvable');
+      if (encryptedPrivKey == null) {
+        if (!mounted) return;
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.warning, color: Colors.orange),
+                SizedBox(width: 8),
+                Text('Clé non configurée'),
+              ],
+            ),
+            content: const Text(
+              'Aucune clé de sécurité n\'est configurée sur cet appareil.\n\n'
+              'Veuillez vous rendre dans les Réglages pour définir votre clé de sécurité.',
+            ),
+            actions: [
+              TextButton(onPressed: () { Navigator.pop(ctx); Navigator.pop(context); }, child: const Text('Fermer')),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  Navigator.pop(context);
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen()));
+                },
+                child: const Text('Ouvrir les Réglages'),
+              ),
+            ],
+          ),
+        );
+        return;
+      }
 
       final pin = await _showPinDialog();
       if (pin == null) return;
@@ -423,16 +557,58 @@ class _ConsultationFormScreenState extends State<ConsultationFormScreen> {
       }
     } catch (e) {
       if (mounted) {
-        String msg = 'Erreur: $e';
         final errStr = e.toString();
-        if (errStr.contains('Unsupported block type') || errStr.contains('Invalid argument') || errStr.contains('RSA') || errStr.contains('PKCS')) {
-          msg = '⚠️ Clé de sécurité incompatible : Cette consultation a été créée avant la dernière réinitialisation de votre licence sur cet appareil. Veuillez créer une nouvelle demande depuis le Hub.';
-        }
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(msg),
-          duration: const Duration(seconds: 6),
-        ));
-        Navigator.pop(context);
+        final isIncompatible = errStr.contains('Unsupported block type') ||
+            errStr.contains('Invalid argument') ||
+            errStr.contains('RSA') ||
+            errStr.contains('PKCS');
+
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: Row(
+              children: [
+                Icon(
+                  isIncompatible ? Icons.lock_clock : Icons.error_outline,
+                  color: isIncompatible ? Colors.orange : Colors.red,
+                ),
+                const SizedBox(width: 8),
+                Text(isIncompatible ? 'Clé de sécurité incompatible' : 'Erreur de déchiffrement'),
+              ],
+            ),
+            content: Text(
+              isIncompatible
+                  ? 'Cette demande a été chiffrée avec une clé antérieure ou différente de celle configurée sur cet appareil.\n\n'
+                      '• Vous pouvez modifier ou synchroniser votre clé de sécurité dans les Réglages à tout moment.\n'
+                      '• Dès modification, le Hub utilisera automatiquement votre nouvelle clé pour vos prochains envois.\n'
+                      '• Vos archives déjà sauvegardées restent accessibles localement.'
+                  : 'Impossible d\'ouvrir la fiche patient : $e',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  Navigator.pop(context);
+                },
+                child: const Text('Fermer'),
+              ),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.teal,
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  Navigator.pop(context);
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen()));
+                },
+                icon: const Icon(Icons.settings, size: 18),
+                label: const Text('Ouvrir les Réglages'),
+              ),
+            ],
+          ),
+        );
       }
     }
   }

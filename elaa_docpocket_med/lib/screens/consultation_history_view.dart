@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:elaa_shared/elaa_shared.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:encrypt/encrypt.dart' as enc;
+import 'settings_screen.dart';
 
 class ConsultationHistoryView extends StatefulWidget {
   final Consultation consultation;
@@ -28,48 +29,124 @@ class _ConsultationHistoryViewState extends State<ConsultationHistoryView> {
   }
 
   Future<String?> _showPinDialog() async {
-    final c = TextEditingController();
+    final prefs = await SharedPreferences.getInstance();
+    final savedPin = prefs.getString('saved_pin');
     String? pin;
     await showDialog(
       context: context,
       barrierDismissible: false,
       builder: (context) {
-        return AlertDialog(
-          title: const Text('Sécurité ELAA - Code PIN'),
-          content: TextField(
-            controller: c,
-            obscureText: true,
-            decoration: const InputDecoration(labelText: 'Entrez votre code PIN médecin'),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context); // Cancel opens previous screen
-              },
-              child: const Text('Annuler'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                pin = c.text;
-                Navigator.pop(context);
-              },
-              child: const Text('Valider'),
-            )
-          ],
+        final c = TextEditingController();
+        String? errorMsg;
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Row(
+                children: [
+                  Icon(Icons.lock, color: Colors.teal),
+                  SizedBox(width: 8),
+                  Text('Sécurité ELAA - Code PIN'),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Entrez votre clé de sécurité (Code PIN) pour déchiffrer ce dossier archivé :'),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: c,
+                    obscureText: true,
+                    keyboardType: TextInputType.text,
+                    decoration: InputDecoration(
+                      labelText: 'Code PIN personnel',
+                      errorText: errorMsg,
+                      prefixIcon: const Icon(Icons.key),
+                    ),
+                    onSubmitted: (_) {
+                      final entered = c.text.trim();
+                      if (entered.isEmpty) {
+                        setDialogState(() => errorMsg = 'Veuillez saisir votre code PIN');
+                        return;
+                      }
+                      if (savedPin != null && savedPin.isNotEmpty && entered != savedPin) {
+                        setDialogState(() => errorMsg = 'Code PIN incorrect. Veuillez réessayer.');
+                        return;
+                      }
+                      pin = entered;
+                      Navigator.pop(context);
+                    },
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(context); // Cancel
+                  },
+                  child: const Text('Annuler'),
+                ),
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                    );
+                  },
+                  child: const Text('Réglages'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    final entered = c.text.trim();
+                    if (entered.isEmpty) {
+                      setDialogState(() => errorMsg = 'Veuillez saisir votre code PIN');
+                      return;
+                    }
+                    if (savedPin != null && savedPin.isNotEmpty && entered != savedPin) {
+                      setDialogState(() => errorMsg = 'Code PIN incorrect. Veuillez réessayer.');
+                      return;
+                    }
+                    pin = entered;
+                    Navigator.pop(context);
+                  },
+                  child: const Text('Valider'),
+                )
+              ],
+            );
+          },
         );
-      }
+      },
     );
     return pin;
   }
 
   Future<void> _decryptDossier() async {
     try {
+      final prefs = await SharedPreferences.getInstance();
+      final localBackupStr = prefs.getString('latest_backup_${widget.consultation.id}');
+      if (localBackupStr != null) {
+        try {
+          final backup = jsonDecode(localBackupStr);
+          final data = backup['data'] as Map<String, dynamic>?;
+          if (data != null && data['patient'] != null) {
+            setState(() {
+              _patientData = data['patient'] != null ? Map<String, dynamic>.from(data['patient']) : null;
+              _rapportData = data['rapport'] != null ? Map<String, dynamic>.from(data['rapport']) : null;
+              _ordonnance = data['ordonnance']?.toString();
+              _financeData = data['finance'] != null ? Map<String, dynamic>.from(data['finance']) : null;
+              _isLoading = false;
+            });
+            return;
+          }
+        } catch (_) {}
+      }
+
       final pin = await _showPinDialog();
       if (pin == null) return;
       
       setState(() { _isLoading = true; _error = null; });
       
-      final prefs = await SharedPreferences.getInstance();
       final encryptedPrivKey = prefs.getString('encrypted_private_key');
       if (encryptedPrivKey == null) throw Exception('Clé privée introuvable');
 

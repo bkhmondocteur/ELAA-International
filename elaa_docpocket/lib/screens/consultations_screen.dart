@@ -243,6 +243,17 @@ class _ConsultationsScreenState extends State<ConsultationsScreen> {
                             final selectedMed = activeMedecins.firstWhere((m) => m.id == selectedMedecinId);
 
                             var medPubKeyBase64 = selectedMed.publicKeyBase64;
+                            // Récupération en temps réel de la clé publique la plus récente
+                            try {
+                              final freshDoc = await _firestore.collection('medecins').doc(selectedMed.id).get();
+                              if (freshDoc.exists && freshDoc.data() != null) {
+                                final freshKey = freshDoc.data()!['publicKeyBase64'] as String?;
+                                if (freshKey != null && freshKey.isNotEmpty) {
+                                  medPubKeyBase64 = freshKey;
+                                }
+                              }
+                            } catch (_) {}
+
                             if (medPubKeyBase64 == null || medPubKeyBase64.isEmpty) {
                               final rsaPair = EncryptionEngine.generateRSAKeyPair();
                               final pubMap = {
@@ -440,6 +451,16 @@ class _ConsultationsScreenState extends State<ConsultationsScreen> {
               onPressed: () async {
                 final newMed = availableMedecins.firstWhere((m) => m.id == selectedMedecinId);
                 var newMedPubKeyBase64 = newMed.publicKeyBase64;
+                try {
+                  final freshDoc = await _firestore.collection('medecins').doc(newMed.id).get();
+                  if (freshDoc.exists && freshDoc.data() != null) {
+                    final freshKey = freshDoc.data()!['publicKeyBase64'] as String?;
+                    if (freshKey != null && freshKey.isNotEmpty) {
+                      newMedPubKeyBase64 = freshKey;
+                    }
+                  }
+                } catch (_) {}
+
                 if (newMedPubKeyBase64 == null || newMedPubKeyBase64.isEmpty) {
                   final rsaPair = EncryptionEngine.generateRSAKeyPair();
                   final pubMap = {

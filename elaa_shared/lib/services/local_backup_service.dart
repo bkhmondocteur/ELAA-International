@@ -431,27 +431,31 @@ class LocalBackupService {
         }
       } catch (_) {}
 
-      // Envoi de chaque morceau dans Firestore
+      // Envoi de tous les morceaux dans Firestore en parallèle (Ultra rapide)
+      final List<Future<void>> chunkUploads = [];
       for (int i = 0; i < totalChunks; i++) {
         final start = i * _chunkSizeBytes;
         final end = (start + _chunkSizeBytes < totalBytes) ? start + _chunkSizeBytes : totalBytes;
         final chunkBytes = totalBytes == 0 ? Uint8List(0) : bytes.sublist(start, end);
         final chunkData = base64Encode(chunkBytes);
 
-        await FirebaseFirestore.instance
-            .collection('consultations')
-            .doc(consultationId)
-            .collection('bridge_chunks')
-            .doc('${fileName}_chunk_$i')
-            .set({
-              'fileName': fileName,
-              'chunkIndex': i,
-              'totalChunks': totalChunks,
-              'chunkData': chunkData,
-              'totalSize': totalBytes,
-              'createdAt': FieldValue.serverTimestamp(),
-            });
+        chunkUploads.add(
+          FirebaseFirestore.instance
+              .collection('consultations')
+              .doc(consultationId)
+              .collection('bridge_chunks')
+              .doc('${fileName}_chunk_$i')
+              .set({
+                'fileName': fileName,
+                'chunkIndex': i,
+                'totalChunks': totalChunks,
+                'chunkData': chunkData,
+                'totalSize': totalBytes,
+                'createdAt': FieldValue.serverTimestamp(),
+              }),
+        );
       }
+      await Future.wait(chunkUploads);
 
       // Mettre à jour les métadonnées sur le document consultation
       await FirebaseFirestore.instance.collection('consultations').doc(consultationId).set({

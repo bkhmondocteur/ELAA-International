@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
@@ -268,7 +269,8 @@ class _ConsultationsScreenState extends State<ConsultationsScreen> {
                                     (selectedGarantieFile!.name.contains('.')
                                         ? selectedGarantieFile!.name.split('.').last
                                         : 'pdf');
-                                garantieUrl = await LocalBackupService.uploadToBridge(consId, 'garantie.$ext', fileBytes);
+                                garantieUrl = await LocalBackupService.uploadToBridge(consId, 'garantie.$ext', fileBytes)
+                                    .timeout(const Duration(seconds: 30));
                               }
                             }
 
@@ -348,11 +350,20 @@ class _ConsultationsScreenState extends State<ConsultationsScreen> {
                             if (tLat != null) consultationMap['gpsTargetLat'] = tLat;
                             if (tLng != null) consultationMap['gpsTargetLng'] = tLng;
 
-                            await docRef.set(consultationMap);
+                            await docRef.set(consultationMap).timeout(const Duration(seconds: 15));
 
                             if (context.mounted) {
                               Navigator.pop(context);
                               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Demande envoyée au médecin en toute sécurité !')));
+                            }
+                          } on TimeoutException {
+                            if (context.mounted) {
+                              setDialogState(() {
+                                isUploading = false;
+                              });
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Délai dépassé (Timeout). Vérifiez votre connexion internet.')),
+                              );
                             }
                           } catch (e) {
                             if (context.mounted) {

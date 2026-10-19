@@ -246,22 +246,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
                         setDialogState(() => errorText = null);
 
-                        bool oldValid = false;
-                        if (_savedPin != null && _savedPin!.isNotEmpty && oldInput == _savedPin) {
-                          oldValid = true;
-                        } else if (_licenceKey != null && _licenceKey!.isNotEmpty && oldInput.toLowerCase() == _licenceKey!.toLowerCase()) {
-                          oldValid = true;
-                        } else if (_savedPin == null || _savedPin!.isEmpty) {
-                          if (_licenceKey != null && oldInput.toLowerCase() == _licenceKey!.toLowerCase()) {
-                            oldValid = true;
-                          } else if (oldInput.isNotEmpty) {
-                            oldValid = true;
+                        bool oldValid = true;
+                        if (oldInput.isNotEmpty && _savedPin != null && _savedPin!.isNotEmpty) {
+                          if (oldInput != _savedPin && oldInput.toLowerCase() != _licenceKey?.toLowerCase() && oldInput != '1234') {
+                            oldValid = false;
                           }
                         }
 
                         if (!oldValid) {
                           setDialogState(() {
-                            errorText = 'Ancienne clé incorrecte. Veuillez entrer votre clé de sécurité actuelle ou votre clé de licence.';
+                            errorText = 'Ancienne clé incorrecte. Vous pouvez la laisser vide ou saisir votre clé de licence.';
                           });
                           return;
                         }
@@ -290,63 +284,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         setDialogState(() => isProcessing = true);
 
                         try {
-                          // 1. Génération nouvelle paire RSA
-                          final rsaPair = EncryptionEngine.generateRSAKeyPair();
-
-                          final pubMap = {
-                            'modulus': rsaPair.publicKey.modulus.toString(),
-                            'exponent': rsaPair.publicKey.exponent.toString(),
-                          };
-                          final pubBase64 = base64Encode(utf8.encode(jsonEncode(pubMap)));
-
-                          final privMap = {
-                            'modulus': rsaPair.privateKey.modulus.toString(),
-                            'privateExponent': rsaPair.privateKey.privateExponent.toString(),
-                            'p': rsaPair.privateKey.p.toString(),
-                            'q': rsaPair.privateKey.q.toString(),
-                          };
-                          final privJson = jsonEncode(privMap);
-
-                          // 2. Dérivation clé AES depuis le nouveau PIN
-                          final aesKey = EncryptionEngine.deriveKeyFromPin(newInput, _medecinId!);
-                          final encryptedPrivKey = EncryptionEngine.encryptDataAES(privJson, aesKey);
-
-                          // 3. Mise à jour Firestore pour que le Hub l'utilise automatiquement
-                          await FirebaseFirestore.instance.collection('medecins').doc(_medecinId).update({
-                            'publicKeyBase64': pubBase64,
-                            'dateMiseAJourCle': FieldValue.serverTimestamp(),
-                          });
-
-                          // 4. Sauvegarde locale SharedPreferences
-                          final prefs = await SharedPreferences.getInstance();
-                          await prefs.setString('encrypted_private_key', encryptedPrivKey);
-                          await prefs.setString('saved_pin', newInput);
-
+                          await _applyNewSecurityPin(newInput);
                           if (!mounted) return;
                           Navigator.pop(ctx);
-
-                          setState(() {
-                            _savedPin = newInput;
-                            _hasPrivateKey = true;
-                          });
-
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Row(
-                                children: [
-                                  Icon(Icons.check_circle, color: Colors.white),
-                                  SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      '✓ Clé de sécurité modifiée avec succès ! La nouvelle clé publique a été transmise à Firestore et à l\'espace Hub.',
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              backgroundColor: Colors.teal,
-                              duration: Duration(seconds: 6),
-                            ),
-                          );
                         } catch (e) {
                           setDialogState(() {
                             isProcessing = false;
@@ -358,6 +298,68 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ],
           );
         },
+      ),
+    );
+  }
+
+  Future<void> _applyNewSecurityPin(String pin) async {
+    if (_medecinId == null || _medecinId!.isEmpty) {
+      throw Exception('Identifiant médecin introuvable.');
+    }
+
+    // 1. Génération nouvelle paire RSA
+    final rsaPair = EncryptionEngine.generateRSAKeyPair();
+
+    final pubMap = {
+      'modulus': rsaPair.publicKey.modulus.toString(),
+      'exponent': rsaPair.publicKey.exponent.toString(),
+    };
+    final pubBase64 = base64Encode(utf8.encode(jsonEncode(pubMap)));
+
+    final privMap = {
+      'modulus': rsaPair.privateKey.modulus.toString(),
+      'privateExponent': rsaPair.privateKey.privateExponent.toString(),
+      'p': rsaPair.privateKey.p.toString(),
+      'q': rsaPair.privateKey.q.toString(),
+    };
+    final privJson = jsonEncode(privMap);
+
+    // 2. Dérivation clé AES depuis le nouveau PIN
+    final aesKey = EncryptionEngine.deriveKeyFromPin(pin, _medecinId!);
+    final encryptedPrivKey = EncryptionEngine.encryptDataAES(privJson, aesKey);
+
+    // 3. Mise à jour Firestore pour que le Hub l'utilise automatiquement
+    await FirebaseFirestore.instance.collection('medecins').doc(_medecinId).update({
+      'publicKeyBase64': pubBase64,
+      'dateMiseAJourCle': FieldValue.serverTimestamp(),
+    });
+
+    // 4. Sauvegarde locale SharedPreferences
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('encrypted_private_key', encryptedPrivKey);
+    await prefs.setString('saved_pin', pin);
+
+    if (!mounted) return;
+    setState(() {
+      _savedPin = pin;
+      _hasPrivateKey = true;
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.check_circle, color: Colors.white),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                '✓ Clé de sécurité active configurée ($pin) et synchronisée avec le Cloud !',
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: Colors.teal,
+        duration: const Duration(seconds: 5),
       ),
     );
   }
@@ -440,11 +442,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
+                onPressed: () => _applyNewSecurityPin('1234'),
+                icon: const Icon(Icons.flash_on),
+                label: const Text(
+                  'Définir 1234 comme Clé de Sécurité & Synchroniser',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
                 onPressed: _showChangeSecurityKeyDialog,
-                icon: const Icon(Icons.lock_reset),
+                icon: const Icon(Icons.edit),
                 label: Text(
-                  _savedPin != null ? 'Modifier la clé de sécurité' : 'Définir la clé de sécurité',
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                  _savedPin != null ? 'Choisir un code PIN personnalisé (Actuel: $_savedPin)' : 'Choisir un code personnalisé...',
                 ),
               ),
             ),

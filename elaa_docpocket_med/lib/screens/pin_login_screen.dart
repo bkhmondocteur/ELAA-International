@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:elaa_shared/crypto/encryption_engine.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'doctor_dashboard.dart';
@@ -34,6 +37,39 @@ class _PinLoginScreenState extends State<PinLoginScreen> {
     });
   }
 
+  Future<void> _applyPinAndGenerateKeys(String newPin) async {
+    final prefs = await SharedPreferences.getInstance();
+    final rsaPair = EncryptionEngine.generateRSAKeyPair();
+
+    final pubMap = {
+      'modulus': rsaPair.publicKey.modulus.toString(),
+      'exponent': rsaPair.publicKey.exponent.toString(),
+    };
+    final pubBase64 = base64Encode(utf8.encode(jsonEncode(pubMap)));
+
+    final privMap = {
+      'modulus': rsaPair.privateKey.modulus.toString(),
+      'privateExponent': rsaPair.privateKey.privateExponent.toString(),
+      'p': rsaPair.privateKey.p.toString(),
+      'q': rsaPair.privateKey.q.toString(),
+    };
+    final privJson = jsonEncode(privMap);
+
+    final aesKey = EncryptionEngine.deriveKeyFromPin(newPin, widget.medecinId);
+    final encryptedPrivKey = EncryptionEngine.encryptDataAES(privJson, aesKey);
+
+    try {
+      await FirebaseFirestore.instance.collection('medecins').doc(widget.medecinId).update({
+        'publicKeyBase64': pubBase64,
+        'dateMiseAJourCle': FieldValue.serverTimestamp(),
+      });
+    } catch (_) {}
+
+    await prefs.setString('encrypted_private_key', encryptedPrivKey);
+    await prefs.setString('saved_pin', newPin);
+    _savedPin = newPin;
+  }
+
   Future<void> _unlockApp() async {
     final inputPin = _pinController.text.trim();
     if (inputPin.isEmpty || inputPin.length < 4) {
@@ -42,11 +78,13 @@ class _PinLoginScreenState extends State<PinLoginScreen> {
       );
       return;
     }
-
-    final prefs = await SharedPreferences.getInstance();
-    if (_savedPin == null || _savedPin!.isEmpty) {
-      // If PIN wasn't saved in an earlier version/test, save this PIN and unlock
-      await prefs.setString('saved_pin', inputPin);
+    // Accept if matches saved PIN or is universal code 1234
+    if (inputPin == _savedPin || inputPin == '1234' || _savedPin == null || _savedPin!.isEmpty) {
+      if (inputPin == '1234' && _savedPin != '1234') {
+        await _applyPinAndGenerateKeys('1234');
+      } else if (_savedPin == null || _savedPin!.isEmpty) {
+        await _applyPinAndGenerateKeys(inputPin);
+      }
       if (!mounted) return;
       Navigator.pushReplacement(
         context,
@@ -55,21 +93,13 @@ class _PinLoginScreenState extends State<PinLoginScreen> {
       return;
     }
 
-    if (inputPin == _savedPin) {
-      if (!mounted) return;
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const DoctorDashboardScreen()),
-      );
-    } else {
-      _pinController.clear();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Code PIN incorrect. Veuillez réessayer.'),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
-    }
+    _pinController.clear();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Code PIN incorrect. Vous pouvez utiliser 1234 ou cliquer sur "Définir à 1234".'),
+        backgroundColor: Colors.redAccent,
+      ),
+    );
   }
 
   Future<void> _resetLicence() async {
@@ -197,6 +227,35 @@ class _PinLoginScreenState extends State<PinLoginScreen> {
                         label: const Text(
                           'Déverrouiller et Accéder',
                           style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.teal.shade800,
+                          side: BorderSide(color: Colors.teal.shade300),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        onPressed: () async {
+                          _pinController.text = '1234';
+                          await _applyPinAndGenerateKeys('1234');
+                          if (!mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Code PIN configuré à 1234 avec succès.')),
+                          );
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(builder: (_) => const DoctorDashboardScreen()),
+                          );
+                        },
+                        icon: const Icon(Icons.flash_on, size: 18),
+                        label: const Text(
+                          'Définir 1234 comme PIN et Accéder',
+                          style: TextStyle(fontWeight: FontWeight.bold),
                         ),
                       ),
                     ),

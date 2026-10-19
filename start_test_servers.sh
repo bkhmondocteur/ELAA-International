@@ -21,14 +21,11 @@ echo "  • Hub (Opérateur) : http://localhost:3000"
 echo "  • Med (Médecin)   : http://localhost:3001"
 echo "  • Portail Suite   : http://localhost:8080"
 
-echo "=== Ouverture automatique de deux fenêtres Google Chrome ==="
+echo "=== Ouverture automatique de deux onglets dans Google Chrome ==="
 if [ -d "/Applications/Google Chrome.app" ]; then
-  open -na "Google Chrome" --args --new-window "http://localhost:3000"
-  sleep 1
-  open -na "Google Chrome" --args --new-window "http://localhost:3001"
-  echo "✓ 2 fenêtres Chrome ouvertes (Hub & Médecin) !"
+  open -a "Google Chrome" "http://localhost:3000" "http://localhost:3001"
+  echo "✓ 2 onglets Chrome ouverts (Hub & Médecin) !"
 else
   open "http://localhost:3000"
-  sleep 1
   open "http://localhost:3001"
 fi

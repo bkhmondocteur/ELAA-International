@@ -37,8 +37,49 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
     String? medId = prefs.getString('medecin_id');
     String nom = prefs.getString('medecin_nom') ?? '';
     String prenom = prefs.getString('medecin_prenom') ?? '';
+    final bool explicitlyChosen = prefs.getBool('doctor_explicitly_chosen') ?? false;
 
-    if (medId != null && (nom.isEmpty || prenom.isEmpty)) {
+    // Check URL parameter first (e.g. ?medecin=Hamed or ?id=...)
+    final urlMed = Uri.base.queryParameters['medecin']?.toLowerCase();
+    if (urlMed != null) {
+      try {
+        final snap = await FirebaseFirestore.instance.collection('medecins').get();
+        final match = snap.docs.firstWhere(
+          (d) => (d.data()['nom']?.toString().toLowerCase().contains(urlMed) == true) ||
+                 (d.data()['prenom']?.toString().toLowerCase().contains(urlMed) == true) ||
+                 d.id.toLowerCase() == urlMed,
+        );
+        medId = match.id;
+        nom = match.data()['nom'] ?? '';
+        prenom = match.data()['prenom'] ?? '';
+        await prefs.setString('medecin_id', medId);
+        await prefs.setString('medecin_nom', nom);
+        await prefs.setString('medecin_prenom', prenom);
+        await prefs.setBool('doctor_explicitly_chosen', true);
+      } catch (_) {}
+    } else if (!explicitlyChosen || medId == null) {
+      try {
+        final snap = await FirebaseFirestore.instance.collection('medecins').get();
+        if (snap.docs.isNotEmpty) {
+          final hamedDoc = snap.docs.firstWhere(
+            (d) => (d.data()['nom']?.toString().toUpperCase().contains('BEN KHALIFA') == true) ||
+                   (d.data()['prenom']?.toString().toLowerCase().contains('hamed') == true),
+            orElse: () => snap.docs.firstWhere(
+              (d) => d.data()['statut'] == 'Actif',
+              orElse: () => snap.docs.first,
+            ),
+          );
+          medId = hamedDoc.id;
+          nom = hamedDoc.data()['nom'] ?? '';
+          prenom = hamedDoc.data()['prenom'] ?? '';
+          await prefs.setString('medecin_id', medId);
+          await prefs.setString('medecin_nom', nom);
+          await prefs.setString('medecin_prenom', prenom);
+        }
+      } catch (e) {
+        debugPrint('Erreur sélection médecin par défaut: $e');
+      }
+    } else if (medId != null && (nom.isEmpty || prenom.isEmpty)) {
       try {
         final doc = await FirebaseFirestore.instance.collection('medecins').doc(medId).get();
         if (doc.exists && doc.data() != null) {
@@ -49,26 +90,6 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
         }
       } catch (e) {
         debugPrint('Erreur lors du chargement des informations médecin: $e');
-      }
-    }
-
-    if (medId == null) {
-      try {
-        var query = await FirebaseFirestore.instance.collection('medecins').where('statut', isEqualTo: 'Actif').limit(1).get();
-        if (query.docs.isEmpty) {
-          query = await FirebaseFirestore.instance.collection('medecins').limit(1).get();
-        }
-        if (query.docs.isNotEmpty) {
-          final doc = query.docs.first;
-          medId = doc.id;
-          nom = doc.data()['nom'] ?? '';
-          prenom = doc.data()['prenom'] ?? '';
-          await prefs.setString('medecin_id', medId);
-          await prefs.setString('medecin_nom', nom);
-          await prefs.setString('medecin_prenom', prenom);
-        }
-      } catch (e) {
-        debugPrint('Erreur auto-recovery du médecin: $e');
       }
     }
 
@@ -92,6 +113,86 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
           duration: const Duration(seconds: 4),
         ),
       );
+    }
+  }
+
+  Future<void> _showSwitchDoctorDialog() async {
+    try {
+      final snap = await FirebaseFirestore.instance.collection('medecins').get();
+      final docs = snap.docs;
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.switch_account, color: Colors.teal),
+              SizedBox(width: 8),
+              Text('Sélectionner le Médecin'),
+            ],
+          ),
+          content: SizedBox(
+            width: 420,
+            child: docs.isEmpty
+                ? const Text('Aucun médecin enregistré.')
+                : ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: docs.length,
+                    separatorBuilder: (_, __) => const Divider(),
+                    itemBuilder: (ctx, i) {
+                      final d = docs[i].data();
+                      final docId = docs[i].id;
+                      final nom = d['nom'] ?? '';
+                      final prenom = d['prenom'] ?? '';
+                      final spec = d['specialite'] ?? 'Médecine Générale';
+                      final isCurrent = docId == _medecinId;
+
+                      return ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: isCurrent ? Colors.teal : Colors.grey.shade300,
+                          foregroundColor: isCurrent ? Colors.white : Colors.black87,
+                          child: Text(nom.isNotEmpty ? nom[0].toUpperCase() : 'M'),
+                        ),
+                        title: Text('Dr. $prenom $nom', style: TextStyle(fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal)),
+                        subtitle: Text(spec),
+                        trailing: isCurrent ? const Icon(Icons.check_circle, color: Colors.teal) : null,
+                        onTap: () async {
+                          Navigator.pop(ctx);
+                          final prefs = await SharedPreferences.getInstance();
+                          await prefs.setString('medecin_id', docId);
+                          await prefs.setString('medecin_nom', nom);
+                          await prefs.setString('medecin_prenom', prenom);
+                          await prefs.setBool('doctor_explicitly_chosen', true);
+                          if (mounted) {
+                            setState(() {
+                              _medecinId = docId;
+                              _nom = nom;
+                              _prenom = prenom;
+                            });
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Profil actif : Dr. $prenom $nom'),
+                                backgroundColor: Colors.teal,
+                              ),
+                            );
+                          }
+                        },
+                      );
+                    },
+                  ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Fermer'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: $e')));
+      }
     }
   }
 
@@ -299,6 +400,17 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
                     ],
                   ),
                 ),
+                const SizedBox(width: 8),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.teal.shade700,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  ),
+                  onPressed: _showSwitchDoctorDialog,
+                  icon: const Icon(Icons.swap_horiz, size: 18),
+                  label: const Text('Changer', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                ),
               ],
             ),
           ),
@@ -503,6 +615,11 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
             ),
           ),
           const SizedBox(width: 4),
+          IconButton(
+            icon: const Icon(Icons.switch_account),
+            tooltip: 'Changer de médecin',
+            onPressed: _showSwitchDoctorDialog,
+          ),
           IconButton(
             icon: const Icon(Icons.settings),
             tooltip: 'Réglages',

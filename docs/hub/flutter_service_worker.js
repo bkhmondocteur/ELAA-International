@@ -24,7 +24,7 @@ const RESOURCES = {"assets/AssetManifest.bin": "8c2f7768e09be520a8c26c9ccccf6c70
 "docpocket-multi-actors.js": "8204ce072e76636c9f8159a6afb97237",
 "favicon.png": "f0797024fdfad25fd5ff4cb80db2c221",
 "flutter.js": "383e55f7f3cce5be08fcf1f3881f585c",
-"flutter_bootstrap.js": "7d4b68ed8640b10255679dc9ae5f1bf8",
+"flutter_bootstrap.js": "f637c4443288959531bd2e7d8ec8bff5",
 "icons/Icon-192.png": "8d6a721706d01b5b2b1ad7e8c3851c3b",
 "icons/Icon-512.png": "d5ecd0c4fa2cc9d09de3354d0b733ee2",
 "icons/Icon-maskable-192.png": "8d6a721706d01b5b2b1ad7e8c3851c3b",

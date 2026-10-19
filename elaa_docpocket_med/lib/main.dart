@@ -17,9 +17,27 @@ void main() async {
   );
   final prefs = await SharedPreferences.getInstance();
   String? medecinId = prefs.getString('medecin_id');
+  final bool explicitlyChosen = prefs.getBool('doctor_explicitly_chosen') ?? false;
   final savedLicence = prefs.getString('saved_licence');
 
-  if (medecinId == null && savedLicence != null && savedLicence.isNotEmpty) {
+  // Check URL parameter first (e.g. ?medecin=Hamed or ?id=...)
+  final urlMed = Uri.base.queryParameters['medecin']?.toLowerCase();
+
+  if (urlMed != null) {
+    try {
+      final snap = await FirebaseFirestore.instance.collection('medecins').get();
+      final match = snap.docs.firstWhere(
+        (d) => (d.data()['nom']?.toString().toLowerCase().contains(urlMed) == true) ||
+               (d.data()['prenom']?.toString().toLowerCase().contains(urlMed) == true) ||
+               d.id.toLowerCase() == urlMed,
+      );
+      medecinId = match.id;
+      await prefs.setString('medecin_id', medecinId);
+      await prefs.setString('medecin_nom', match.data()['nom'] ?? '');
+      await prefs.setString('medecin_prenom', match.data()['prenom'] ?? '');
+      await prefs.setBool('doctor_explicitly_chosen', true);
+    } catch (_) {}
+  } else if (medecinId == null && savedLicence != null && savedLicence.isNotEmpty) {
     try {
       final query = await FirebaseFirestore.instance
           .collection('medecins')
@@ -36,22 +54,22 @@ void main() async {
     } catch (_) {}
   }
 
-  if (medecinId == null) {
+  if (!explicitlyChosen || medecinId == null) {
     try {
-      var query = await FirebaseFirestore.instance
-          .collection('medecins')
-          .where('statut', isEqualTo: 'Actif')
-          .limit(1)
-          .get();
-      if (query.docs.isEmpty) {
-        query = await FirebaseFirestore.instance.collection('medecins').limit(1).get();
-      }
-      if (query.docs.isNotEmpty) {
-        final doc = query.docs.first;
-        medecinId = doc.id;
-        await prefs.setString('medecin_id', medecinId!);
-        await prefs.setString('medecin_nom', doc.data()['nom'] ?? '');
-        await prefs.setString('medecin_prenom', doc.data()['prenom'] ?? '');
+      final snap = await FirebaseFirestore.instance.collection('medecins').get();
+      if (snap.docs.isNotEmpty) {
+        final hamedDoc = snap.docs.firstWhere(
+          (d) => (d.data()['nom']?.toString().toUpperCase().contains('BEN KHALIFA') == true) ||
+                 (d.data()['prenom']?.toString().toLowerCase().contains('hamed') == true),
+          orElse: () => snap.docs.firstWhere(
+            (d) => d.data()['statut'] == 'Actif',
+            orElse: () => snap.docs.first,
+          ),
+        );
+        medecinId = hamedDoc.id;
+        await prefs.setString('medecin_id', medecinId);
+        await prefs.setString('medecin_nom', hamedDoc.data()['nom'] ?? '');
+        await prefs.setString('medecin_prenom', hamedDoc.data()['prenom'] ?? '');
       }
     } catch (_) {}
   }

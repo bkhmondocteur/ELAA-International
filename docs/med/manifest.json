@@ -1,13 +1,12 @@
 {
-    "name": "ELAA DocPocket Med",
-    "short_name": "DocPocket Med",
-    "start_url": "./",
-    "scope": "./",
+    "name": "elaa_docpocket_med",
+    "short_name": "elaa_docpocket_med",
+    "start_url": ".",
     "display": "standalone",
-    "background_color": "#0B172A",
-    "theme_color": "#00796B",
-    "description": "ELAA International — Dossier Médical & Application Médecin",
-    "orientation": "any",
+    "background_color": "#0175C2",
+    "theme_color": "#0175C2",
+    "description": "A new Flutter project.",
+    "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
         {

@@ -81,8 +81,16 @@ class _ConsultationsScreenState extends State<ConsultationsScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    TextField(controller: nomController, decoration: const InputDecoration(labelText: 'Nom du Patient')),
-                    TextField(controller: prenomController, decoration: const InputDecoration(labelText: 'Prénom du Patient')),
+                    TextField(
+                      controller: nomController,
+                      decoration: const InputDecoration(labelText: 'Nom du Patient'),
+                      inputFormatters: [UpperCaseTextFormatter()],
+                    ),
+                    TextField(
+                      controller: prenomController,
+                      decoration: const InputDecoration(labelText: 'Prénom du Patient'),
+                      inputFormatters: [CapitalizeWordsTextFormatter()],
+                    ),
                     Row(
                       children: [
                         Expanded(
@@ -105,7 +113,11 @@ class _ConsultationsScreenState extends State<ConsultationsScreen> {
                         ),
                       ],
                     ),
-                    TextField(controller: villeController, decoration: const InputDecoration(labelText: 'Origine / Ville')),
+                    TextField(
+                      controller: villeController,
+                      decoration: const InputDecoration(labelText: 'Origine / Ville'),
+                      inputFormatters: [CapitalizeWordsTextFormatter()],
+                    ),
                     Row(
                       children: [
                         Expanded(
@@ -138,6 +150,7 @@ class _ConsultationsScreenState extends State<ConsultationsScreen> {
                                 controller: fieldTextEditingController,
                                 focusNode: fieldFocusNode,
                                 decoration: const InputDecoration(labelText: 'Hôtel / Lieu (Recherche ou libre)'),
+                                inputFormatters: [CapitalizeWordsTextFormatter()],
                               );
                             },
                           ),
@@ -259,14 +272,19 @@ class _ConsultationsScreenState extends State<ConsultationsScreen> {
                               }
                             }
 
+                            final formattedNom = formatNom(nomController.text);
+                            final formattedPrenom = formatCapitalized(prenomController.text);
+                            final formattedVille = formatCapitalized(villeController.text);
+                            final formattedHotel = formatCapitalized(hotelController.text);
+
                             // 1. Prepare JSON Data
                             final patientData = {
-                              'nom': nomController.text,
-                              'prenom': prenomController.text,
+                              'nom': formattedNom,
+                              'prenom': formattedPrenom,
                               'dateNaissance': ddnController.text,
                               'age': ageController.text,
-                              'ville': villeController.text,
-                              'hotel': hotelController.text,
+                              'ville': formattedVille,
+                              'hotel': formattedHotel,
                               'chambre': chambreController.text,
                               'garantie': garantieController.text,
                               if (garantieUrl != null) 'garantieUrl': garantieUrl,
@@ -302,8 +320,8 @@ class _ConsultationsScreenState extends State<ConsultationsScreen> {
                               }
                             }
                             
-                            if (hotelController.text.isNotEmpty && tLat != null && tLng != null) {
-                              final hotelName = hotelController.text.trim();
+                            if (formattedHotel.isNotEmpty && tLat != null && tLng != null) {
+                              final hotelName = formattedHotel;
                               final exists = savedHotels.any((h) => h['nom'] == hotelName);
                               if (!exists) {
                                 await _firestore.collection('hotels').add({
@@ -318,8 +336,8 @@ class _ConsultationsScreenState extends State<ConsultationsScreen> {
                             final consultationMap = Consultation(
                               id: consId,
                               medecinId: selectedMed.id,
-                              patientNom: nomController.text,
-                              patientPrenom: prenomController.text,
+                              patientNom: formattedNom,
+                              patientPrenom: formattedPrenom,
                               statut: 'En attente',
                               encryptedKeyForHub: encryptedKeyForHub,
                               encryptedKeyForMedecin: encryptedKeyForMedecin,

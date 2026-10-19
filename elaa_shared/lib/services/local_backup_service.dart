@@ -351,18 +351,45 @@ class LocalBackupService {
     }
   }
 
-  // --- BRIDGE SYNCHRONIZATION METHODS ---
+  // --- BRIDGE SYNCHRONIZATION METHODS (FIRESTORE CHUNKING) ---
+
+  static final Map<String, Uint8List> _webBridgeCache = {};
+  static const int _chunkSizeBytes = 300 * 1024; // Morceaux de 300 Ko
+
+  static String _getMimeType(String fileName) {
+    final lower = fileName.toLowerCase();
+    if (lower.endsWith('.pdf')) return 'application/pdf';
+    if (lower.endsWith('.png')) return 'image/png';
+    if (lower.endsWith('.gif')) return 'image/gif';
+    return 'image/jpeg';
+  }
 
   static Future<String?> checkLocalFile(String consultationId, String fileName) async {
-    if (kIsWeb) return null; // Sur Web on s'appuie plutôt sur Firestore/Firebase
-    try {
-      final baseFolder = await getBackupFolder();
-      final dirPath = '$baseFolder/Consultations/$consultationId';
-      final file = File('$dirPath/$fileName');
-      if (await file.exists()) {
-        return file.path;
+    if (!kIsWeb) {
+      try {
+        final baseFolder = await getBackupFolder();
+        final dirPath = '$baseFolder/Consultations/$consultationId';
+        final file = File('$dirPath/$fileName');
+        if (await file.exists()) {
+          return file.path;
+        }
+      } catch (_) {}
+    } else {
+      final key = '${consultationId}_$fileName';
+      if (_webBridgeCache.containsKey(key)) {
+        final bytes = _webBridgeCache[key]!;
+        final mime = _getMimeType(fileName);
+        return 'data:$mime;base64,${base64Encode(bytes)}';
       }
-    } catch (_) {}
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final b64 = prefs.getString('local_bridge_$key');
+        if (b64 != null && b64.isNotEmpty) {
+          final mime = _getMimeType(fileName);
+          return 'data:$mime;base64,$b64';
+        }
+      } catch (_) {}
+    }
     return null;
   }
 
@@ -376,11 +403,63 @@ class LocalBackupService {
         if (!await dir.exists()) await dir.create(recursive: true);
         final file = File('${dir.path}/$fileName');
         await file.writeAsBytes(bytes, flush: true);
+      } else {
+        final key = '${consultationId}_$fileName';
+        _webBridgeCache[key] = bytes;
+        try {
+          final prefs = await SharedPreferences.getInstance();
+          if (bytes.length < 2 * 1024 * 1024) {
+            await prefs.setString('local_bridge_$key', base64Encode(bytes));
+          }
+        } catch (_) {}
       }
       
-      // 2. Upload sur le pont Firebase Storage
-      final ref = FirebaseStorage.instance.ref().child('bridge/$consultationId/$fileName');
-      await ref.putData(bytes);
+      // 2. Découpage du fichier en morceaux (chunks de 300 Ko) pour Firestore
+      final int totalBytes = bytes.length;
+      final int totalChunks = totalBytes == 0 ? 1 : (totalBytes / _chunkSizeBytes).ceil();
+
+      // Nettoyer les anciens morceaux s'il y en avait
+      try {
+        final oldChunks = await FirebaseFirestore.instance
+            .collection('consultations')
+            .doc(consultationId)
+            .collection('bridge_chunks')
+            .where('fileName', isEqualTo: fileName)
+            .get();
+        for (var doc in oldChunks.docs) {
+          await doc.reference.delete();
+        }
+      } catch (_) {}
+
+      // Envoi de chaque morceau dans Firestore
+      for (int i = 0; i < totalChunks; i++) {
+        final start = i * _chunkSizeBytes;
+        final end = (start + _chunkSizeBytes < totalBytes) ? start + _chunkSizeBytes : totalBytes;
+        final chunkBytes = totalBytes == 0 ? Uint8List(0) : bytes.sublist(start, end);
+        final chunkData = base64Encode(chunkBytes);
+
+        await FirebaseFirestore.instance
+            .collection('consultations')
+            .doc(consultationId)
+            .collection('bridge_chunks')
+            .doc('${fileName}_chunk_$i')
+            .set({
+              'fileName': fileName,
+              'chunkIndex': i,
+              'totalChunks': totalChunks,
+              'chunkData': chunkData,
+              'totalSize': totalBytes,
+              'createdAt': FieldValue.serverTimestamp(),
+            });
+      }
+
+      // Mettre à jour les métadonnées sur le document consultation
+      await FirebaseFirestore.instance.collection('consultations').doc(consultationId).set({
+        'bridge_$fileName': fileName,
+        'bridge_${fileName}_status': 'ready',
+        'bridge_${fileName}_totalChunks': totalChunks,
+        'bridge_${fileName}_totalSize': totalBytes,
+      }, SetOptions(merge: true));
       
       return fileName;
     } catch (e) {
@@ -391,20 +470,72 @@ class LocalBackupService {
 
   static Future<String?> downloadFromBridge(String consultationId, String fileName) async {
     try {
-      if (kIsWeb) return null;
-      final ref = FirebaseStorage.instance.ref().child('bridge/$consultationId/$fileName');
-      
-      final baseFolder = await getBackupFolder();
-      final dirPath = '$baseFolder/Consultations/$consultationId';
-      final dir = Directory(dirPath);
-      if (!await dir.exists()) await dir.create(recursive: true);
-      
-      final file = File('${dir.path}/$fileName');
-      
-      // Téléchargement depuis Firebase Storage vers le fichier local
-      await ref.writeToFile(file);
-      
-      return file.path;
+      // 1. Vérifier si déjà présent en local
+      final existingLocal = await checkLocalFile(consultationId, fileName);
+      if (existingLocal != null) {
+        return existingLocal;
+      }
+
+      // 2. Téléchargement des morceaux depuis Firestore
+      final snapshot = await FirebaseFirestore.instance
+          .collection('consultations')
+          .doc(consultationId)
+          .collection('bridge_chunks')
+          .where('fileName', isEqualTo: fileName)
+          .get();
+
+      if (snapshot.docs.isEmpty) {
+        debugPrint('Aucun morceau trouvé pour $fileName (consultation $consultationId)');
+        return null;
+      }
+
+      final docs = snapshot.docs.toList()
+        ..sort((a, b) => ((a.data()['chunkIndex'] as int?) ?? 0)
+            .compareTo((b.data()['chunkIndex'] as int?) ?? 0));
+
+      final int totalChunks = (docs.first.data()['totalChunks'] as int?) ?? docs.length;
+      if (docs.length < totalChunks) {
+        debugPrint('Morceaux incomplets: ${docs.length}/$totalChunks');
+        return null;
+      }
+
+      // 3. Réassemblage des morceaux (collage local)
+      final builder = BytesBuilder(copy: false);
+      for (final doc in docs) {
+        final b64 = doc.data()['chunkData'] as String?;
+        if (b64 != null && b64.isNotEmpty) {
+          builder.add(base64Decode(b64));
+        }
+      }
+      final fullBytes = builder.takeBytes();
+
+      // 4. Enregistrement local
+      String resultPath;
+      if (!kIsWeb) {
+        final baseFolder = await getBackupFolder();
+        final dirPath = '$baseFolder/Consultations/$consultationId';
+        final dir = Directory(dirPath);
+        if (!await dir.exists()) await dir.create(recursive: true);
+        final file = File('${dir.path}/$fileName');
+        await file.writeAsBytes(fullBytes, flush: true);
+        resultPath = file.path;
+      } else {
+        final key = '${consultationId}_$fileName';
+        _webBridgeCache[key] = fullBytes;
+        try {
+          final prefs = await SharedPreferences.getInstance();
+          if (fullBytes.length < 2 * 1024 * 1024) {
+            await prefs.setString('local_bridge_$key', base64Encode(fullBytes));
+          }
+        } catch (_) {}
+        final mime = _getMimeType(fileName);
+        resultPath = 'data:$mime;base64,${base64Encode(fullBytes)}';
+      }
+
+      // 5. Suppression immédiate de tous les morceaux du cloud
+      await deleteFromBridge(consultationId, fileName);
+
+      return resultPath;
     } catch (e) {
       debugPrint('Erreur downloadFromBridge: $e');
       return null;
@@ -413,13 +544,31 @@ class LocalBackupService {
 
   static Future<void> deleteFromBridge(String consultationId, String fileName) async {
     try {
-      final ref = FirebaseStorage.instance.ref().child('bridge/$consultationId/$fileName');
-      await ref.delete();
-      
-      // Mettre à jour Firestore pour indiquer que le pont est vide
-      await FirebaseFirestore.instance.collection('consultations').doc(consultationId).update({
-        'bridge_$fileName': FieldValue.delete(),
-      });
+      final snapshot = await FirebaseFirestore.instance
+          .collection('consultations')
+          .doc(consultationId)
+          .collection('bridge_chunks')
+          .where('fileName', isEqualTo: fileName)
+          .get();
+
+      final batch = FirebaseFirestore.instance.batch();
+      for (final doc in snapshot.docs) {
+        batch.delete(doc.reference);
+      }
+
+      batch.set(
+        FirebaseFirestore.instance.collection('consultations').doc(consultationId),
+        {
+          'bridge_$fileName': FieldValue.delete(),
+          'bridge_${fileName}_status': FieldValue.delete(),
+          'bridge_${fileName}_totalChunks': FieldValue.delete(),
+          'bridge_${fileName}_totalSize': FieldValue.delete(),
+        },
+        SetOptions(merge: true),
+      );
+
+      await batch.commit();
+      debugPrint('Tous les morceaux de $fileName ont été effacés du cloud avec succès.');
     } catch (e) {
       debugPrint('Erreur deleteFromBridge: $e');
     }

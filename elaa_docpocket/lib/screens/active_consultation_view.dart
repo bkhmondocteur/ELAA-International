@@ -545,17 +545,7 @@ ELAA International DocPocket Pro Hub''';
           child: Column(
             children: [
               Expanded(
-                child: url.startsWith('http')
-                    ? Image.network(
-                        url,
-                        fit: BoxFit.contain,
-                        errorBuilder: (ctx, err, stack) => _buildErrorFallback(url),
-                      )
-                    : Image.file(
-                        File(url),
-                        fit: BoxFit.contain,
-                        errorBuilder: (ctx, err, stack) => _buildErrorFallback(url),
-                      ),
+                child: _buildDocumentContent(url),
               ),
             ],
           ),
@@ -565,6 +555,63 @@ ELAA International DocPocket Pro Hub''';
         ],
       ),
     );
+  }
+
+  Widget _buildDocumentContent(String url) {
+    if (url.startsWith('data:image/')) {
+      try {
+        final base64String = url.split(',').last;
+        final bytes = base64Decode(base64String);
+        return Image.memory(bytes, fit: BoxFit.contain);
+      } catch (e) {
+        return _buildErrorFallback(url);
+      }
+    } else if (url.startsWith('data:application/pdf') || url.toLowerCase().endsWith('.pdf')) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.picture_as_pdf, size: 80, color: Colors.red),
+            const SizedBox(height: 16),
+            const Text(
+              'Document PDF (Garantie de prise en charge)',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: () {
+                if (url.startsWith('data:application/pdf')) {
+                  final base64String = url.split(',').last;
+                  final bytes = base64Decode(base64String);
+                  downloadWebFile(bytes, 'garantie.pdf', 'application/pdf');
+                } else if (!kIsWeb) {
+                  launchUrl(Uri.file(url));
+                }
+              },
+              icon: const Icon(Icons.download),
+              label: const Text('Télécharger / Consulter le PDF'),
+            ),
+          ],
+        ),
+      );
+    } else if (url.startsWith('http')) {
+      return Image.network(
+        url,
+        fit: BoxFit.contain,
+        errorBuilder: (ctx, err, stack) => _buildErrorFallback(url),
+      );
+    } else if (!kIsWeb) {
+      try {
+        final file = File(url);
+        if (file.existsSync()) {
+          final lower = url.toLowerCase();
+          if (lower.endsWith('.png') || lower.endsWith('.jpg') || lower.endsWith('.jpeg')) {
+            return Image.file(file, fit: BoxFit.contain);
+          }
+        }
+      } catch (_) {}
+    }
+    return _buildErrorFallback(url);
   }
 
   Widget _buildErrorFallback(String url) {
@@ -580,6 +627,25 @@ ELAA International DocPocket Pro Hub''';
         ],
       ),
     );
+  }
+
+  Widget _buildPassportWidget(String url) {
+    if (url.startsWith('data:image/')) {
+      try {
+        final bytes = base64Decode(url.split(',').last);
+        return Image.memory(bytes, height: 300, fit: BoxFit.contain);
+      } catch (_) {}
+    } else if (url.startsWith('http')) {
+      return Image.network(url, height: 300, fit: BoxFit.contain);
+    } else if (!kIsWeb) {
+      try {
+        final file = File(url);
+        if (file.existsSync()) {
+          return Image.file(file, height: 300, fit: BoxFit.contain);
+        }
+      } catch (_) {}
+    }
+    return const Center(child: Text('Pièce d\'identité enregistrée'));
   }
 
   @override
@@ -725,9 +791,7 @@ ELAA International DocPocket Pro Hub''';
                     Text('Pièce d\'identité', style: Theme.of(context).textTheme.titleLarge),
                     const Divider(),
                     const SizedBox(height: 10),
-                    _passportUrl!.startsWith('http')
-                        ? Image.network(_passportUrl!, height: 300, fit: BoxFit.contain)
-                        : Image.file(File(_passportUrl!), height: 300, fit: BoxFit.contain),
+                    _buildPassportWidget(_passportUrl!),
                   ],
                 ),
               ),

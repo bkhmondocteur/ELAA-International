@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -1036,15 +1037,20 @@ Dr $doctorName
       final encPrivAes = EncryptionEngine.encryptRSA(privateAesKey.base64, rsaPubKey);
       final finalEncryptedDossierMedicalPrive = '$encPrivAes|$encryptedDossier';
 
+      final formattedNom = formatNom(_nomController.text);
+      final formattedPrenom = formatCapitalized(_prenomController.text);
+      final formattedVille = formatCapitalized(_villeController.text);
+      final formattedHotel = formatCapitalized(_hotelController.text);
+
       // Re-encrypt updated patient data
       final patientDataMap = {
-        'nom': _nomController.text,
-        'prenom': _prenomController.text,
+        'nom': formattedNom,
+        'prenom': formattedPrenom,
         'telephone': _telController.text,
         'dateNaissance': _ddnController.text,
         'age': _ageController.text,
-        'ville': _villeController.text,
-        'hotel': _hotelController.text,
+        'ville': formattedVille,
+        'hotel': formattedHotel,
         'chambre': _chambreController.text,
         'dossier': _dossierController.text,
         'garantie': _dossierController.text,
@@ -1060,8 +1066,8 @@ Dr $doctorName
         'encryptedEtatFinancier': encryptedEtatFinancier,
         'encryptedDossierMedicalPrive': finalEncryptedDossierMedicalPrive,
         'statut': 'Terminée - RO', // Statut transmis au Hub
-        'patientNom': _nomController.text,
-        'patientPrenom': _prenomController.text,
+        'patientNom': formattedNom,
+        'patientPrenom': formattedPrenom,
       };
 
       if (passportUrl != null) {
@@ -1146,8 +1152,16 @@ Dr $doctorName
                 padding: const EdgeInsets.all(8.0),
                 child: Column(
                   children: [
-                    TextField(controller: _nomController, decoration: const InputDecoration(labelText: 'Nom')),
-                    TextField(controller: _prenomController, decoration: const InputDecoration(labelText: 'Prénom')),
+                    TextField(
+                      controller: _nomController,
+                      decoration: const InputDecoration(labelText: 'Nom'),
+                      inputFormatters: [UpperCaseTextFormatter()],
+                    ),
+                    TextField(
+                      controller: _prenomController,
+                      decoration: const InputDecoration(labelText: 'Prénom'),
+                      inputFormatters: [CapitalizeWordsTextFormatter()],
+                    ),
                     TextField(controller: _telController, decoration: const InputDecoration(labelText: 'Téléphone'), keyboardType: TextInputType.phone),
                     Row(
                       children: [
@@ -1171,11 +1185,19 @@ Dr $doctorName
                         ),
                       ],
                     ),
-                    TextField(controller: _villeController, decoration: const InputDecoration(labelText: 'Origine / Ville')),
+                    TextField(
+                      controller: _villeController,
+                      decoration: const InputDecoration(labelText: 'Origine / Ville'),
+                      inputFormatters: [CapitalizeWordsTextFormatter()],
+                    ),
                     Row(
                       children: [
                         Expanded(
-                          child: TextField(controller: _hotelController, decoration: const InputDecoration(labelText: 'Hôtel / Lieu')),
+                          child: TextField(
+                            controller: _hotelController,
+                            decoration: const InputDecoration(labelText: 'Hôtel / Lieu'),
+                            inputFormatters: [CapitalizeWordsTextFormatter()],
+                          ),
                         ),
                         if (_targetLat != 0.0 && _targetLng != 0.0)
                           IconButton(
@@ -1575,17 +1597,7 @@ Dr $doctorName
           child: Column(
             children: [
               Expanded(
-                child: url.startsWith('http')
-                    ? Image.network(
-                        url,
-                        fit: BoxFit.contain,
-                        errorBuilder: (ctx, err, stack) => _buildErrorFallback(url),
-                      )
-                    : Image.file(
-                        File(url),
-                        fit: BoxFit.contain,
-                        errorBuilder: (ctx, err, stack) => _buildErrorFallback(url),
-                      ),
+                child: _buildDocumentContent(url),
               ),
             ],
           ),
@@ -1595,6 +1607,63 @@ Dr $doctorName
         ],
       ),
     );
+  }
+
+  Widget _buildDocumentContent(String url) {
+    if (url.startsWith('data:image/')) {
+      try {
+        final base64String = url.split(',').last;
+        final bytes = base64Decode(base64String);
+        return Image.memory(bytes, fit: BoxFit.contain);
+      } catch (e) {
+        return _buildErrorFallback(url);
+      }
+    } else if (url.startsWith('data:application/pdf') || url.toLowerCase().endsWith('.pdf')) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.picture_as_pdf, size: 80, color: Colors.red),
+            const SizedBox(height: 16),
+            const Text(
+              'Document PDF (Garantie de prise en charge)',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: () {
+                if (url.startsWith('data:application/pdf')) {
+                  final base64String = url.split(',').last;
+                  final bytes = base64Decode(base64String);
+                  downloadWebFile(bytes, 'garantie.pdf', 'application/pdf');
+                } else if (!kIsWeb) {
+                  launchUrl(Uri.file(url));
+                }
+              },
+              icon: const Icon(Icons.download),
+              label: const Text('Télécharger / Consulter le PDF'),
+            ),
+          ],
+        ),
+      );
+    } else if (url.startsWith('http')) {
+      return Image.network(
+        url,
+        fit: BoxFit.contain,
+        errorBuilder: (ctx, err, stack) => _buildErrorFallback(url),
+      );
+    } else if (!kIsWeb) {
+      try {
+        final file = File(url);
+        if (file.existsSync()) {
+          final lower = url.toLowerCase();
+          if (lower.endsWith('.png') || lower.endsWith('.jpg') || lower.endsWith('.jpeg')) {
+            return Image.file(file, fit: BoxFit.contain);
+          }
+        }
+      } catch (_) {}
+    }
+    return _buildErrorFallback(url);
   }
 
   Widget _buildErrorFallback(String url) {
